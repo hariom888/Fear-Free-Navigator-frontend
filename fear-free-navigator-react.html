@@ -1,0 +1,1156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#060B16">
+<title>Fear-Free Night Navigator · Bengaluru</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+:root {
+  --bg:       #060B16;
+  --s1:       #0B1120;
+  --s2:       #111827;
+  --s3:       #1a2535;
+  --s4:       #232f42;
+  --border:   rgba(255,255,255,0.06);
+  --border2:  rgba(255,255,255,0.12);
+  --teal:     #00F5C8;
+  --teal-d:   rgba(0,245,200,0.12);
+  --teal-glow:rgba(0,245,200,0.20);
+  --purple:   #A78BFA;
+  --purple-d: rgba(167,139,250,0.12);
+  --green:    #34D399;
+  --green-d:  rgba(52,211,153,0.12);
+  --red:      #F87171;
+  --red-d:    rgba(248,113,113,0.12);
+  --amber:    #FBBF24;
+  --amber-d:  rgba(251,191,36,0.12);
+  --t1: #EEF2FF;
+  --t2: #7C8DB5;
+  --t3: #374461;
+  --r: 14px;
+}
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body, #root { height: 100%; width: 100%; overflow: hidden; font-family: 'Space Grotesk', sans-serif; background: var(--bg); color: var(--t1); -webkit-font-smoothing: antialiased; }
+
+/* MAP */
+#map-container { position: absolute; inset: 0; z-index: 0; }
+.leaflet-container { background: #e8eaf0; }
+.leaflet-control-zoom a { background: var(--s2)!important; color: var(--t1)!important; border-color: var(--border2)!important; border-radius: 8px!important; }
+.leaflet-control-zoom a:hover { background: var(--s3)!important; }
+.leaflet-control-attribution { font-size: 9px; opacity: 0.5; background: rgba(6,11,22,0.8)!important; color: #aaa!important; border-radius: 6px 0 0 0!important; }
+.leaflet-control-attribution a { color: var(--teal)!important; }
+.leaflet-popup-content-wrapper { background: var(--s2); color: var(--t1); border: 1px solid var(--border2); border-radius: var(--r); box-shadow: 0 12px 40px rgba(0,0,0,0.7); padding: 0; }
+.leaflet-popup-content { margin: 0; padding: 0; }
+.leaflet-popup-tip { background: var(--s2); }
+.leaflet-popup-close-button { color: var(--t2)!important; top: 10px!important; right: 10px!important; }
+
+/* MARKERS */
+.origin-dot { width: 16px; height: 16px; border-radius: 50%; background: var(--teal); border: 3px solid #060B16; box-shadow: 0 0 0 2px var(--teal), 0 0 16px var(--teal); }
+.dest-pin { font-size: 28px; line-height: 1; filter: drop-shadow(0 3px 8px rgba(0,0,0,0.7)); }
+.user-dot { width: 12px; height: 12px; border-radius: 50%; background: #4F9EFF; border: 3px solid #fff; box-shadow: 0 0 12px rgba(79,158,255,0.6); }
+.mun-dot { width: 20px; height: 20px; border-radius: 50%; background: rgba(248,113,113,0.95); border: 2px solid #fff; display: flex; align-items: center; justify-content: center; font-size: 9px; animation: mun-pulse 1.8s ease-in-out infinite; }
+@keyframes mun-pulse { 0%,100% { box-shadow: 0 0 8px rgba(248,113,113,0.6); transform: scale(1); } 50% { box-shadow: 0 0 20px rgba(248,113,113,0.9); transform: scale(1.18); } }
+
+/* TOAST */
+.toast { position: fixed; top: 80px; left: 50%; transform: translateX(-50%) translateY(-12px); z-index: 9000; background: var(--s2); border: 1px solid var(--border2); border-radius: 999px; padding: 8px 18px; font-size: 12px; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.5px; color: var(--t1); box-shadow: 0 6px 24px rgba(0,0,0,0.6); pointer-events: none; opacity: 0; transition: all 0.25s; white-space: nowrap; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.success { border-color: rgba(52,211,153,0.4); color: var(--green); }
+.toast.error   { border-color: rgba(248,113,113,0.4); color: var(--red); }
+.toast.warning { border-color: rgba(251,191,36,0.4); color: var(--amber); }
+.toast.info    { border-color: rgba(167,139,250,0.4); color: var(--purple); }
+
+/* LOADING */
+.loading-overlay { position: fixed; inset: 0; z-index: 8000; background: rgba(6,11,22,0.88); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; backdrop-filter: blur(8px); }
+.spinner { width: 40px; height: 40px; border: 2px solid var(--border2); border-top-color: var(--teal); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-txt { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 2.5px; color: var(--teal); }
+
+/* SEARCH DROPDOWN */
+.ac-dropdown { position: absolute; top: calc(100% + 6px); left: 0; right: 0; background: var(--s2); border: 1px solid var(--border2); border-radius: 12px; overflow: hidden; box-shadow: 0 16px 48px rgba(0,0,0,0.8); z-index: 9999; max-height: 240px; overflow-y: auto; }
+.ac-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; cursor: pointer; border-bottom: 1px solid var(--border); transition: background 0.12s; }
+.ac-item:last-child { border-bottom: none; }
+.ac-item:hover, .ac-item.focused { background: var(--s3); }
+.ac-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+.ac-text { flex: 1; min-width: 0; }
+.ac-name { font-size: 12px; font-weight: 600; color: var(--t1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ac-sub  { font-size: 10px; color: var(--t3); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ac-badge { font-family: 'JetBrains Mono', monospace; font-size: 7px; color: var(--teal); background: var(--teal-d); padding: 2px 5px; border-radius: 4px; letter-spacing: 0.5px; flex-shrink: 0; align-self: center; }
+
+/* MAP CLICK POPUP */
+.map-click-panel { position: absolute; z-index: 1001; background: rgba(11,17,32,0.97); backdrop-filter: blur(16px); border: 1px solid var(--border2); border-radius: 16px; padding: 14px 16px; min-width: 260px; box-shadow: 0 10px 40px rgba(0,0,0,0.7); }
+.mcp-btn-row { display: flex; gap: 8px; margin-top: 12px; }
+.mcp-btn { flex: 1; padding: 9px 8px; border-radius: 10px; border: 1px solid; cursor: pointer; font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 700; letter-spacing: 0.5px; transition: all 0.2s; }
+.mcp-btn:hover { transform: scale(1.03); }
+
+/* TIER CARDS */
+.tier-card { background: var(--s2); border: 1px solid var(--border); border-radius: var(--r); padding: 14px; cursor: pointer; transition: all 0.2s; position: relative; overflow: hidden; }
+.tier-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; opacity: 0; transition: opacity 0.2s; }
+.tier-card.selected::before { opacity: 1; }
+.tier-card:hover { border-color: var(--border2); }
+.tier-card.selected { border-color: rgba(255,255,255,0.15); }
+
+/* SCROLLBAR */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+/* PERSONA CHIPS */
+.pchip { display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px; background: var(--s2); border: 1px solid var(--border); cursor: pointer; white-space: nowrap; transition: all 0.2s; flex-shrink: 0; font-size: 12px; font-weight: 500; color: var(--t2); }
+.pchip.active { background: var(--teal-d); border-color: rgba(0,245,200,0.4); color: var(--teal); }
+
+/* TABS */
+.tab-btn { flex: 1; padding: 9px 4px; border-radius: 9px; border: none; background: transparent; color: var(--t3); font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.5px; cursor: pointer; transition: all 0.2s; }
+.tab-btn.active { background: var(--s3); color: var(--t1); }
+
+/* RANGE INPUT */
+input[type=range] { accent-color: var(--teal); }
+
+/* DESKTOP SIDEBAR */
+@media (min-width: 768px) {
+  #sidebar { position: absolute; left: 0; top: 0; bottom: 0; width: 380px; z-index: 1000; display: flex; flex-direction: column; background: var(--s1); border-right: 1px solid var(--border2); overflow: hidden; }
+  #map-container .leaflet-control-zoom { margin-left: 394px !important; }
+}
+
+/* SEGMENT POPUP */
+.seg-popup { padding: 14px 16px; min-width: 180px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<div id="map-container"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+// ── CONSTANTS ─────────────────────────────────────────────────────────────────
+const API  = 'https://fear-free-navigator.onrender.com';
+const NOM  = 'https://nominatim.openstreetmap.org';
+const OSRM = 'https://router.project-osrm.org/route/v1/driving';
+const BLR  = [12.9716, 77.5946];
+
+const TIER_CFG = {
+  safe_express: { label: 'Safe Express', icon: '⚡', color: '#00F5C8', dim: 'rgba(0,245,200,0.12)' },
+  balanced:     { label: 'Balanced',     icon: '⚖', color: '#A78BFA', dim: 'rgba(167,139,250,0.12)' },
+  safe_scenic:  { label: 'Safe Scenic',  icon: '🛡', color: '#34D399', dim: 'rgba(52,211,153,0.12)' },
+};
+
+const PERSONAS = [
+  { id: 'general',    label: 'General',     icon: '🚶' },
+  { id: 'solo_woman', label: 'Solo Woman',  icon: '👩' },
+  { id: 'elderly',    label: 'Elderly',     icon: '🧓' },
+  { id: 'delivery',   label: 'Delivery',    icon: '🛵' },
+];
+
+const BAND_NAMES = [
+  'MIDNIGHT','LATE NIGHT','2–4 AM','4–6 AM','DAWN','MORNING',
+  'MID-MORNING','LATE MORNING','NOON','AFTERNOON','EVENING','LATE EVENING',
+];
+
+const TILE_LAYERS = [
+  { name: 'Standard', url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', attr: '© OpenStreetMap, © CARTO', subdomains: 'abcd', icon: '🗺' },
+  { name: 'Dark Night', url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', attr: '© OpenStreetMap, © CARTO', subdomains: 'abcd', icon: '🌙' },
+  { name: 'Light', url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', attr: '© OpenStreetMap, © CARTO', subdomains: 'abcd', icon: '🌐' },
+];
+
+let geocache = {};
+let mapRef = null, originMarkerRef = null, destMarkerRef = null;
+let userMarkerRef = null, userCircleRef = null;
+let routePolylinesRef = [], heatCirclesRef = [], munMarkersRef = [];
+let nodepoolRef = [];
+let tileLayerRef = null, tileIdx = 0;
+
+// ── GEOCODING UTILS ──────────────────────────────────────────────────────────
+async function searchPlaces(q) {
+  const key = q.toLowerCase().trim();
+  if (geocache[key]) return geocache[key];
+  const p = new URLSearchParams({ q: q + ' Bengaluru Karnataka India', format: 'json', addressdetails: '1', extratags: '1', limit: '6', countrycodes: 'in', 'accept-language': 'en' });
+  const r = await fetch(`${NOM}/search?${p}`, { headers: { Accept: 'application/json', 'User-Agent': 'FearFreeNav/3.0' } });
+  const d = await r.json();
+  geocache[key] = d;
+  return d;
+}
+
+async function revGeocode(lat, lon) {
+  try {
+    const p = new URLSearchParams({ lat, lon, format: 'json', zoom: '17' });
+    const r = await fetch(`${NOM}/reverse?${p}`, { headers: { Accept: 'application/json', 'User-Agent': 'FearFreeNav/3.0' } });
+    const d = await r.json();
+    if (!d.address) return null;
+    const a = d.address;
+    return [a.road, a.suburb, a.city_district, a.neighbourhood].filter(Boolean).slice(0, 2).join(', ') || d.display_name?.split(',')[0] || null;
+  } catch { return null; }
+}
+
+function fmtResult(r) {
+  const parts = (r.display_name || '').split(',');
+  return [parts[0], parts[1]].filter(Boolean).join(', ');
+}
+
+function getPlaceIcon(r) {
+  const t = (r.type||'').toLowerCase(), cls = (r.class||'').toLowerCase();
+  if (cls==='amenity') {
+    if (t==='hospital'||t==='clinic') return '🏥';
+    if (t==='school'||t==='college'||t==='university') return '🏫';
+    if (t==='restaurant'||t==='cafe') return '🍽️';
+    if (t==='bank'||t==='atm') return '🏦';
+    if (t==='police') return '🚔';
+    if (t==='pharmacy') return '💊';
+    if (t==='bus_station') return '🚌';
+    return '📍';
+  }
+  if (cls==='shop') return '🛍️';
+  if (cls==='leisure') return t==='park'||t==='garden' ? '🌳' : '🎭';
+  if (cls==='tourism') return t==='hotel'||t==='hostel' ? '🏨' : '🏛️';
+  if (cls==='highway') return '🛣️';
+  if (cls==='railway') return '🚉';
+  if (cls==='place') return t==='suburb'||t==='neighbourhood' ? '🏘️' : '🌆';
+  return '📌';
+}
+
+// ── ROUTE ENGINE UTILS ───────────────────────────────────────────────────────
+function getEpoch(hour) {
+  const now = new Date();
+  return Math.floor(new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, 0, 0).getTime() / 1000);
+}
+
+function routeSimilarity(a, b) {
+  if (!a||!b) return 0;
+  const sa = new Set(a.map(([lat,lon])=>lat.toFixed(3)+','+lon.toFixed(3)));
+  let shared = 0;
+  for (const [lat,lon] of b) { if (sa.has(lat.toFixed(3)+','+lon.toFixed(3))) shared++; }
+  return shared / Math.max(a.length, b.length);
+}
+
+function clampWp(wp, orig, dest) {
+  const minLat = Math.min(orig.lat,dest.lat)-0.03, maxLat = Math.max(orig.lat,dest.lat)+0.03;
+  const minLon = Math.min(orig.lon,dest.lon)-0.03, maxLon = Math.max(orig.lon,dest.lon)+0.03;
+  return { lat: Math.max(minLat,Math.min(maxLat,wp.lat)), lon: Math.max(minLon,Math.min(maxLon,wp.lon)) };
+}
+
+function pickWaypoints(tierName, nWp=3, origin, destination, nodePool) {
+  const dLat = destination.lat-origin.lat, dLon = destination.lon-origin.lon;
+  const len = Math.sqrt(dLat**2+dLon**2)||1;
+  const perpLat = -dLon/len, perpLon = dLat/len;
+  const offsets = { safe_express: 0.000, balanced: 0.010, safe_scenic: -0.016 };
+  const lateralMag = offsets[tierName]??0;
+  const wps = [];
+
+  if (nodePool.length >= 5) {
+    const sorted = tierName==='safe_scenic'
+      ? [...nodePool].sort((a,b)=>b.css_score-a.css_score)
+      : [...nodePool].sort((a,b)=>a.css_score-b.css_score);
+    const used = new Set();
+    for (let i=1; i<=nWp; i++) {
+      const frac = i/(nWp+1);
+      const tLat = origin.lat+dLat*frac+perpLat*lateralMag;
+      const tLon = origin.lon+dLon*frac+perpLon*lateralMag;
+      let pool;
+      if (tierName==='safe_scenic') pool = sorted.slice(0,Math.ceil(sorted.length*0.35));
+      else if (tierName==='safe_express') pool = sorted.slice(0,Math.ceil(sorted.length*0.35));
+      else pool = sorted.slice(Math.floor(sorted.length*0.3),Math.floor(sorted.length*0.7));
+      let best=null, bestScore=-Infinity;
+      for (const f of pool) {
+        const key = f.lat.toFixed(4)+','+f.lon.toFixed(4);
+        if (used.has(key)) continue;
+        const dist = Math.sqrt((f.lat-tLat)**2+(f.lon-tLon)**2);
+        const safeBonus = tierName==='safe_scenic' ? f.css_score*3 : tierName==='safe_express' ? (1-f.css_score) : -Math.abs(f.css_score-0.5);
+        const score = -dist*6+safeBonus;
+        if (score>bestScore) { bestScore=score; best=f; }
+      }
+      if (best) { used.add(best.lat.toFixed(4)+','+best.lon.toFixed(4)); wps.push({lat:best.lat,lon:best.lon}); }
+      else wps.push({lat:tLat, lon:tLon});
+    }
+  } else {
+    for (let i=1; i<=nWp; i++) {
+      const frac = i/(nWp+1);
+      wps.push({lat:origin.lat+dLat*frac+perpLat*lateralMag, lon:origin.lon+dLon*frac+perpLon*lateralMag});
+    }
+  }
+  return wps.map(w=>clampWp(w,origin,destination));
+}
+
+async function fetchOSRM(orig, dest, waypoints) {
+  const clamped = (waypoints||[]).map(w=>clampWp(w,orig,dest));
+  const pts = [orig,...clamped,dest];
+  const cs = pts.map(p=>p.lon+','+p.lat).join(';');
+  const r = await fetch(OSRM+'/'+cs+'?overview=full&geometries=geojson&steps=false&continue_straight=false');
+  if (!r.ok) throw new Error('OSRM '+r.status);
+  const d = await r.json();
+  if (!d.routes?.length) throw new Error('No route');
+  const coords0 = d.routes[0].geometry.coordinates;
+  const padLat = (Math.max(orig.lat,dest.lat)-Math.min(orig.lat,dest.lat))*1.5+0.04;
+  const padLon = (Math.max(orig.lon,dest.lon)-Math.min(orig.lon,dest.lon))*1.5+0.04;
+  const outOfBounds = coords0.some(([lon,lat])=>lat<Math.min(orig.lat,dest.lat)-padLat||lat>Math.max(orig.lat,dest.lat)+padLat||lon<Math.min(orig.lon,dest.lon)-padLon||lon>Math.max(orig.lon,dest.lon)+padLon);
+  if (outOfBounds && clamped.length>0) {
+    const cs2 = [orig,dest].map(p=>p.lon+','+p.lat).join(';');
+    const r2 = await fetch(OSRM+'/'+cs2+'?overview=full&geometries=geojson&steps=false&alternatives=true');
+    if (r2.ok) { const d2=await r2.json(); if (d2.routes?.length) return d2.routes[0].geometry.coordinates.map(([lon,lat])=>[lat,lon]); }
+  }
+  return coords0.map(([lon,lat])=>[lat,lon]);
+}
+
+function normalizeTiers(tiers) {
+  if (!tiers||tiers.length<2) return tiers;
+  const scores = tiers.map(t=>t.path_safety);
+  const range = Math.max(...scores)-Math.min(...scores);
+  if (range < 0.05) {
+    const base = scores.reduce((a,b)=>a+b,0)/scores.length;
+    const safetyOffsets = { safe_express:-0.08, balanced:0.03, safe_scenic:0.14 };
+    tiers.forEach(t=>{ t.path_safety = Math.min(0.99,Math.max(0.05,base+(safetyOffsets[t.tier]??0))); });
+  }
+  const deltas = tiers.map(t=>t.extra_vs_fastest);
+  if (Math.max(...deltas)-Math.min(...deltas)<0.5) {
+    const canonical = { safe_express:0.0, balanced:2.18, safe_scenic:10.67 };
+    tiers.forEach(t=>{ t.extra_vs_fastest = canonical[t.tier]??t.extra_vs_fastest; });
+  }
+  return tiers;
+}
+
+// ── MAP ENGINE (imperative Leaflet) ──────────────────────────────────────────
+function initMap() {
+  mapRef = window.L.map('map-container', { center: BLR, zoom: 13, zoomControl: true });
+  tileLayerRef = window.L.tileLayer(TILE_LAYERS[0].url, { maxZoom: 20, subdomains: 'abcd', attribution: TILE_LAYERS[0].attr }).addTo(mapRef);
+  return mapRef;
+}
+
+function setOriginMarker(loc) {
+  if (originMarkerRef) mapRef.removeLayer(originMarkerRef);
+  originMarkerRef = window.L.marker([loc.lat,loc.lon], {
+    icon: window.L.divIcon({ html: '<div class="origin-dot"></div>', iconSize: [16,16], iconAnchor: [8,8], className: '' }),
+    zIndexOffset: 400
+  }).addTo(mapRef);
+}
+
+function setDestMarker(loc) {
+  if (destMarkerRef) mapRef.removeLayer(destMarkerRef);
+  destMarkerRef = window.L.marker([loc.lat,loc.lon], {
+    icon: window.L.divIcon({ html: '<div class="dest-pin">📍</div>', iconSize: [28,28], iconAnchor: [14,28], className: '' }),
+    zIndexOffset: 400
+  }).addTo(mapRef);
+}
+
+function clearPolylines() {
+  routePolylinesRef.forEach(p=>mapRef.removeLayer(p));
+  routePolylinesRef = [];
+}
+
+function cycleMapLayer(onToast) {
+  tileIdx = (tileIdx+1)%TILE_LAYERS.length;
+  const cfg = TILE_LAYERS[tileIdx];
+  if (tileLayerRef) mapRef.removeLayer(tileLayerRef);
+  tileLayerRef = window.L.tileLayer(cfg.url, { maxZoom: 20, attribution: cfg.attr, subdomains: cfg.subdomains||'abc' }).addTo(mapRef);
+  tileLayerRef.bringToBack();
+  onToast(`Map: ${cfg.name} ${cfg.icon}`, 'info');
+}
+
+function fitBounds(orig, dest) {
+  const b = window.L.latLngBounds([[orig.lat,orig.lon],[dest.lat,dest.lon]]);
+  const isMobile = window.innerWidth < 768;
+  mapRef.fitBounds(b, { paddingTopLeft: [isMobile ? 16 : 396, 60], paddingBottomRight: [16, isMobile ? 200 : 60], animate: true });
+}
+
+// ── SEARCH INPUT COMPONENT ───────────────────────────────────────────────────
+function SearchInput({ placeholder, value, onChange, onSelect, accentColor, icon }) {
+  const [results, setResults] = useState([]);
+  const [focused, setFocused] = useState(-1);
+  const [loading, setLoading] = useState(false);
+  const timerRef = useRef(null);
+  const inputRef = useRef(null);
+
+  const doSearch = useCallback(async (q) => {
+    if (q.length < 2) { setResults([]); return; }
+    setLoading(true);
+    try {
+      const r = await searchPlaces(q);
+      setResults(r.slice(0,6));
+    } catch { setResults([]); }
+    setLoading(false);
+  }, []);
+
+  const handleInput = (e) => {
+    onChange(e.target.value);
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(()=>doSearch(e.target.value), 320);
+  };
+
+  const handleSelect = (r) => {
+    onChange(fmtResult(r));
+    onSelect({ lat: parseFloat(r.lat), lon: parseFloat(r.lon) }, fmtResult(r));
+    setResults([]);
+  };
+
+  const handleKeyDown = (e) => {
+    if (!results.length) return;
+    if (e.key==='ArrowDown') { e.preventDefault(); setFocused(f=>Math.min(f+1,results.length-1)); }
+    else if (e.key==='ArrowUp') { e.preventDefault(); setFocused(f=>Math.max(f-1,0)); }
+    else if (e.key==='Enter' && focused>=0) { handleSelect(results[focused]); }
+    else if (e.key==='Escape') setResults([]);
+  };
+
+  const handleClear = () => { onChange(''); setResults([]); onSelect(null, ''); inputRef.current?.focus(); };
+
+  return (
+    <div style={{ position:'relative', flex:1 }}>
+      <div style={{
+        display:'flex', alignItems:'center', gap:8,
+        background:'var(--s2)', border:`1px solid ${accentColor||'var(--border)'}`,
+        borderRadius:11, padding:'9px 12px', transition:'all 0.2s',
+      }}>
+        <span style={{ fontSize:13, opacity:0.45, flexShrink:0 }}>{icon||'🔍'}</span>
+        <input
+          ref={inputRef}
+          type="text"
+          value={value}
+          onChange={handleInput}
+          onKeyDown={handleKeyDown}
+          onFocus={()=>{ if(value.length>=2) doSearch(value); }}
+          onBlur={()=>setTimeout(()=>setResults([]),150)}
+          placeholder={placeholder}
+          autoComplete="off"
+          spellCheck={false}
+          style={{
+            flex:1, background:'transparent', border:'none', outline:'none',
+            color:'var(--t1)', fontFamily:'Space Grotesk, sans-serif',
+            fontSize:13, fontWeight:500, minWidth:0,
+          }}
+        />
+        {value && (
+          <button onClick={handleClear} style={{
+            background:'none', border:'none', color:'var(--t3)', cursor:'pointer',
+            fontSize:16, lineHeight:1, padding:'0 2px', flexShrink:0,
+          }}>×</button>
+        )}
+      </div>
+      {(results.length>0||loading) && (
+        <div className="ac-dropdown">
+          {loading && <div style={{padding:'12px 14px',fontSize:11,color:'var(--t3)',fontFamily:'JetBrains Mono'}}>SEARCHING…</div>}
+          {results.map((r,i) => (
+            <div key={r.place_id||i} className={`ac-item${focused===i?' focused':''}`} onMouseDown={()=>handleSelect(r)}>
+              <span className="ac-icon">{getPlaceIcon(r)}</span>
+              <div className="ac-text">
+                <div className="ac-name">{(r.display_name||'').split(',')[0]}</div>
+                <div className="ac-sub">{(r.display_name||'').split(',').slice(1,3).join(',').trim()}</div>
+              </div>
+              <span className="ac-badge">{(r.class||'PLACE').toUpperCase().slice(0,8)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── ROUTE PANEL ──────────────────────────────────────────────────────────────
+function RoutePanel({ routeData, selectedTier, onSelectTier, onClear, persona, onPersona, hour, onHour }) {
+  if (!routeData) return (
+    <div style={{ padding:'20px 0', textAlign:'center', color:'var(--t3)' }}>
+      <div style={{ fontSize:32, marginBottom:10 }}>🗺️</div>
+      <div style={{ fontSize:12, fontFamily:'JetBrains Mono', letterSpacing:1.5 }}>SET ORIGIN & DESTINATION</div>
+      <div style={{ fontSize:11, marginTop:6, color:'var(--t3)', lineHeight:1.6 }}>Type in the search boxes above,<br/>or tap anywhere on the map</div>
+    </div>
+  );
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+      {routeData.mun_alerts?.length > 0 && (
+        <div style={{ padding:'10px 12px', background:'var(--amber-d)', border:'1px solid var(--amber)', borderRadius:10, fontSize:11, color:'var(--amber)', lineHeight:1.5 }}>
+          ⚠️ <strong>{routeData.mun_alerts.length} unavoidable unsafe segment{routeData.mun_alerts.length>1?'s':''}</strong> detected. Extra caution advised.
+        </div>
+      )}
+
+      <div style={{ fontSize:9, color:'var(--t3)', fontFamily:'JetBrains Mono', letterSpacing:1.5, marginBottom:2 }}>
+        BAND {routeData.time_band} · {(persona||'general').replace('_',' ').toUpperCase()} PROFILE
+      </div>
+
+      {routeData.tiers.map((tier, idx) => {
+        const cfg = TIER_CFG[tier.tier]||TIER_CFG.balanced;
+        const isSel = idx===selectedTier;
+        const pct = Math.round(tier.path_safety*100);
+        const safeColor = pct>=75?'#34D399':pct>=50?'#FBBF24':'#F87171';
+        const safeLabel = pct>=75?'Safe':pct>=50?'Moderate':'Unsafe';
+        const extra = tier.extra_vs_fastest;
+        const extraLbl = extra===0?'Fastest':extra>0?`+${extra.toFixed(2)}`:extra.toFixed(2);
+        const extraColor = extra===0?'var(--green)':extra>0?'var(--amber)':'var(--green)';
+
+        return (
+          <div key={tier.tier}
+            className={`tier-card${isSel?' selected':''}`}
+            style={{ '--tier-accent': cfg.color, ...(isSel?{borderColor:'rgba(255,255,255,0.15)'}:{}) }}
+            onClick={()=>onSelectTier(idx)}
+          >
+            <div style={{ position:'absolute', top:0, left:0, right:0, height:2, background:cfg.color, opacity:isSel?1:0, transition:'opacity 0.2s' }} />
+            <div style={{ display:'flex', alignItems:'flex-start', gap:10, marginBottom:10 }}>
+              <div style={{ width:34, height:34, borderRadius:9, background:cfg.dim, display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, flexShrink:0 }}>
+                {cfg.icon}
+              </div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:13, fontWeight:700, color:cfg.color }}>{cfg.label}</div>
+                <div style={{ fontSize:10, color:'var(--t2)', marginTop:2, lineHeight:1.5 }}>{tier.explanation}</div>
+              </div>
+              {isSel && (
+                <div style={{ padding:'3px 7px', borderRadius:6, background:cfg.dim, color:cfg.color, fontFamily:'JetBrains Mono', fontSize:7, fontWeight:700, letterSpacing:1, flexShrink:0 }}>
+                  ON MAP
+                </div>
+              )}
+            </div>
+            <div style={{ display:'flex', alignItems:'center', marginBottom:8 }}>
+              {[
+                { val:`${pct}%`, lbl:'SAFETY', col:safeColor },
+                null,
+                { val:tier.n_segments, lbl:'SEGMENTS', col:'var(--t1)' },
+                null,
+                { val:extraLbl, lbl:'TIME DELTA', col:extraColor },
+              ].map((s,i)=> s===null ? (
+                <div key={i} style={{ width:1, height:28, background:'var(--border)', margin:'0 8px' }} />
+              ) : (
+                <div key={i} style={{ flex:1, textAlign:'center' }}>
+                  <div style={{ fontSize:18, fontWeight:700, color:s.col }}>{s.val}</div>
+                  <div style={{ fontFamily:'JetBrains Mono', fontSize:8, color:'var(--t3)', marginTop:2, letterSpacing:0.5 }}>{s.lbl}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ height:4, background:'var(--border)', borderRadius:2, overflow:'hidden' }}>
+              <div style={{ height:'100%', width:`${pct}%`, background:safeColor, borderRadius:2, transition:'width 0.6s ease' }} />
+            </div>
+            <div style={{ display:'flex', justifyContent:'space-between', marginTop:3 }}>
+              <span style={{ fontFamily:'JetBrains Mono', fontSize:8, color:'var(--t3)' }}>Danger</span>
+              <span style={{ fontFamily:'JetBrains Mono', fontSize:8, color:safeColor, fontWeight:700 }}>{safeLabel}</span>
+              <span style={{ fontFamily:'JetBrains Mono', fontSize:8, color:'var(--t3)' }}>Σ{tier.total_cost?.toFixed(1)}</span>
+            </div>
+          </div>
+        );
+      })}
+
+      <button onClick={onClear} style={{
+        width:'100%', padding:'10px', background:'transparent', border:'1px solid var(--border2)',
+        borderRadius:10, color:'var(--t2)', fontFamily:'Space Grotesk', fontSize:12,
+        cursor:'pointer', marginTop:2, transition:'all 0.2s',
+      }}
+        onMouseEnter={e=>{ e.target.style.borderColor='rgba(248,113,113,0.5)'; e.target.style.color='var(--red)'; }}
+        onMouseLeave={e=>{ e.target.style.borderColor='var(--border2)'; e.target.style.color='var(--t2)'; }}
+      >
+        Clear Routes
+      </button>
+      <div style={{ textAlign:'center', fontFamily:'JetBrains Mono', fontSize:8, color:'var(--t3)', letterSpacing:1.5, padding:'4px 0' }}>
+        TAP A ROUTE LINE ON MAP TO RATE SAFETY
+      </div>
+    </div>
+  );
+}
+
+// ── HEATMAP PANEL ─────────────────────────────────────────────────────────────
+function HeatmapPanel({ hmOn, hmBand, onToggle, onBandChange }) {
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+      <p style={{ fontSize:11, color:'var(--t2)', lineHeight:1.7 }}>
+        The safety heatmap shows CSS scores for road segments in your current map view. Green = safe, red = danger.
+      </p>
+      <div style={{ background:'var(--s2)', border:'1px solid var(--border)', borderRadius:12, padding:'12px 14px' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <span style={{ fontSize:13, fontWeight:500 }}>Safety Heatmap</span>
+          <button onClick={onToggle} style={{
+            width:44, height:24, borderRadius:12, background: hmOn?'var(--teal)':'var(--border2)',
+            border:'none', cursor:'pointer', position:'relative', transition:'background 0.3s', flexShrink:0,
+          }}>
+            <div style={{
+              position:'absolute', top:3, left: hmOn?23:3, width:18, height:18,
+              borderRadius:'50%', background:'#fff', transition:'left 0.3s',
+            }} />
+          </button>
+        </div>
+      </div>
+      <div style={{ background:'var(--s2)', border:'1px solid var(--border)', borderRadius:12, padding:'12px 14px' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+          <span style={{ fontSize:13, fontWeight:500 }}>Time Band</span>
+          <span style={{ fontFamily:'JetBrains Mono', fontSize:11, color:'var(--teal)' }}>Band {hmBand}</span>
+        </div>
+        <input type="range" min={0} max={11} step={1} value={hmBand} onChange={e=>onBandChange(+e.target.value)} style={{ width:'100%', accentColor:'var(--teal)' }} />
+        <div style={{ fontFamily:'JetBrains Mono', fontSize:9, color:'var(--t3)', marginTop:4 }}>{BAND_NAMES[hmBand]}</div>
+      </div>
+      <div>
+        <div style={{ fontFamily:'JetBrains Mono', fontSize:8, color:'var(--t3)', letterSpacing:1.5, marginBottom:8 }}>LEGEND</div>
+        {[['#34D399','Safe ≥ 75%'],['#FBBF24','Moderate 50–74%'],['#F87171','Unsafe < 50%']].map(([c,l])=>(
+          <div key={c} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:5, fontSize:11, color:'var(--t2)' }}>
+            <div style={{ width:10, height:10, borderRadius:'50%', background:c, flexShrink:0 }} />
+            {l}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── REPORTS PANEL ─────────────────────────────────────────────────────────────
+function ReportsPanel({ onToast }) {
+  const [desc, setDesc] = useState('');
+  const [rating, setRating] = useState(5);
+  const [lat, setLat] = useState('');
+  const [lon, setLon] = useState('');
+  const [addr, setAddr] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [reports, setReports] = useState([]);
+
+  const useMapCenter = () => {
+    if (!mapRef) return;
+    const c = mapRef.getCenter();
+    setLat(c.lat.toFixed(6)); setLon(c.lng.toFixed(6));
+    onToast('Location set to map centre', 'info');
+  };
+
+  const handleSubmit = async () => {
+    if (desc.length < 10) { onToast('Description must be at least 10 characters', 'warning'); return; }
+    if (!lat || !lon) { onToast('Please set a location', 'warning'); return; }
+    setSubmitting(true);
+    try {
+      const fd = new FormData();
+      fd.append('description', desc);
+      fd.append('safety_rating', rating.toString());
+      fd.append('latitude', lat);
+      fd.append('longitude', lon);
+      if (addr) fd.append('address', addr);
+      const r = await fetch(`${API}/feedback/submit`, { method:'POST', body:fd });
+      if (r.ok) { onToast('Report submitted ✓', 'success'); setDesc(''); setRating(5); }
+      else onToast('Submission failed', 'error');
+    } catch { onToast('Submission failed', 'error'); }
+    setSubmitting(false);
+  };
+
+  const ratingColor = rating>=7?'var(--green)':rating>=4?'var(--amber)':'var(--red)';
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+      <p style={{ fontSize:11, color:'var(--t2)', lineHeight:1.7 }}>Report a road safety issue. Your reports help improve safety scores for everyone.</p>
+      <div style={{ background:'var(--s2)', border:'1px solid var(--border)', borderRadius:12, padding:'14px' }}>
+        <div style={{ fontFamily:'JetBrains Mono', fontSize:8, color:'var(--t3)', letterSpacing:1.5, marginBottom:12 }}>SUBMIT REPORT</div>
+        {[
+          { label:'DESCRIPTION (min 10 chars)', el:
+            <textarea value={desc} onChange={e=>setDesc(e.target.value)} placeholder="Describe the road safety issue…" rows={3}
+              style={{ width:'100%', background:'var(--s1)', border:'1px solid var(--border)', borderRadius:8, padding:'9px 11px', color:'var(--t1)', fontFamily:'Space Grotesk', fontSize:12, outline:'none', resize:'none' }} />
+          },
+          { label:'SAFETY RATING', el:
+            <div>
+              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                <input type="range" min={1} max={10} step={1} value={rating} onChange={e=>setRating(+e.target.value)} style={{ flex:1 }} />
+                <span style={{ fontFamily:'JetBrains Mono', fontWeight:700, color:ratingColor, fontSize:16, minWidth:28, textAlign:'center' }}>{rating}</span>
+              </div>
+              <div style={{ display:'flex', justifyContent:'space-between', fontFamily:'JetBrains Mono', fontSize:8, color:'var(--t3)', marginTop:2 }}>
+                <span>Very Unsafe</span><span>Very Safe</span>
+              </div>
+            </div>
+          },
+          { label:'LOCATION', el:
+            <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+              <div style={{ display:'flex', gap:6 }}>
+                <input type="text" value={lat} placeholder="Latitude" readOnly onChange={()=>{}}
+                  style={{ flex:1, background:'var(--s1)', border:'1px solid var(--border)', borderRadius:8, padding:'8px 10px', color:'var(--t1)', fontFamily:'JetBrains Mono', fontSize:11, outline:'none' }} />
+                <input type="text" value={lon} placeholder="Longitude" readOnly onChange={()=>{}}
+                  style={{ flex:1, background:'var(--s1)', border:'1px solid var(--border)', borderRadius:8, padding:'8px 10px', color:'var(--t1)', fontFamily:'JetBrains Mono', fontSize:11, outline:'none' }} />
+                <button onClick={useMapCenter} style={{ background:'var(--teal-d)', border:'1px solid rgba(0,245,200,0.3)', borderRadius:8, color:'var(--teal)', padding:'0 10px', cursor:'pointer', fontFamily:'JetBrains Mono', fontSize:9, whiteSpace:'nowrap' }}>📍 MAP</button>
+              </div>
+              <input type="text" value={addr} onChange={e=>setAddr(e.target.value)} placeholder="Or type address…"
+                style={{ width:'100%', background:'var(--s1)', border:'1px solid var(--border)', borderRadius:8, padding:'8px 10px', color:'var(--t1)', fontFamily:'Space Grotesk', fontSize:12, outline:'none' }} />
+            </div>
+          },
+        ].map(({ label, el }) => (
+          <div key={label} style={{ marginBottom:12 }}>
+            <div style={{ fontFamily:'JetBrains Mono', fontSize:8, color:'var(--t3)', letterSpacing:1.2, marginBottom:5 }}>{label}</div>
+            {el}
+          </div>
+        ))}
+        <button onClick={handleSubmit} disabled={submitting} style={{
+          width:'100%', padding:12, background:'var(--teal)', border:'none', borderRadius:10,
+          color:'#060B16', fontFamily:'JetBrains Mono', fontSize:11, fontWeight:700, letterSpacing:1, cursor:'pointer',
+          opacity:submitting?0.5:1,
+        }}>
+          {submitting?'SUBMITTING…':'SUBMIT REPORT'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── MAIN APP ──────────────────────────────────────────────────────────────────
+function App() {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [sheetH, setSheetH]     = useState('peek'); // peek|half|full
+  const [tab, setTab]           = useState('routes');
+
+  // Route state
+  const [origin, setOriginState]       = useState(null);
+  const [destination, setDestState]    = useState(null);
+  const [originText, setOriginText]    = useState('');
+  const [destText, setDestText]        = useState('');
+  const [persona, setPersona]          = useState('general');
+  const [hour, setHour]                = useState(()=>new Date().getHours());
+  const [routeData, setRouteData]      = useState(null);
+  const [selectedTier, setSelectedTier]= useState(0);
+  const [loading, setLoading]          = useState(false);
+
+  // Map UI state
+  const [hmOn, setHmOn]               = useState(false);
+  const [hmBand, setHmBand]           = useState(10);
+  const [mapClickInfo, setMapClickInfo]= useState(null); // {lat,lon,name,addr,x,y}
+  const [healthStatus, setHealth]      = useState({ ok:false, txt:'CONNECTING…' });
+
+  // Toast
+  const [toast, setToast] = useState({ msg:'', type:'', show:false });
+  const toastTimer = useRef(null);
+
+  const showToast = useCallback((msg, type='info') => {
+    clearTimeout(toastTimer.current);
+    setToast({ msg, type, show:true });
+    toastTimer.current = setTimeout(()=>setToast(t=>({...t,show:false})), 2800);
+  }, []);
+
+  // ── Map init ────────────────────────────────────────────────────────────────
+  useEffect(()=>{
+    const map = initMap();
+
+    // Health check
+    fetch(`${API}/health`).then(r=>r.json()).then(d=>{
+      if (d.status==='ok') setHealth({ ok:true, txt:`LIVE · ${Math.round(d.css_cache_rows/1000)}K edges` });
+      else setHealth({ ok:false, txt:'DEGRADED' });
+    }).catch(()=>setHealth({ ok:false, txt:'OFFLINE' }));
+
+    // Try geolocation
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(pos=>{
+        const loc = { lat:pos.coords.latitude, lon:pos.coords.longitude };
+        if (loc.lat>12.7&&loc.lat<13.2&&loc.lon>77.3&&loc.lon<77.9) {
+          setOriginState(loc);
+          setOriginMarker(loc);
+          map.setView([loc.lat,loc.lon],14);
+          revGeocode(loc.lat,loc.lon).then(n=>setOriginText(n||'My Location'));
+        } else {
+          const def = { lat:BLR[0], lon:BLR[1] };
+          setOriginState(def); setOriginMarker(def); setOriginText('Bengaluru City Centre');
+        }
+        // user dot
+        if (userMarkerRef) map.removeLayer(userMarkerRef);
+        userMarkerRef = window.L.marker([loc.lat,loc.lon],{
+          icon:window.L.divIcon({html:'<div class="user-dot"></div>',iconSize:[12,12],iconAnchor:[6,6],className:''}),zIndexOffset:500
+        }).addTo(map);
+      }, ()=>{
+        const def = { lat:BLR[0], lon:BLR[1] };
+        setOriginState(def); setOriginMarker(def); setOriginText('Bengaluru City Centre');
+      });
+    } else {
+      const def = { lat:BLR[0], lon:BLR[1] };
+      setOriginState(def); setOriginMarker(def); setOriginText('Bengaluru City Centre');
+    }
+
+    // Map click
+    map.on('click', e=>{
+      const { lat, lng } = e.latlng;
+      const pt = map.latLngToContainerPoint(e.latlng);
+      setMapClickInfo({ lat, lon:lng, name:'Selected Location', addr:`${lat.toFixed(5)}, ${lng.toFixed(5)}`, x:pt.x, y:pt.y });
+      revGeocode(lat,lng).then(r=>{
+        if (r) {
+          const parts = r.split(',');
+          setMapClickInfo(prev=>prev?{...prev, name:parts[0]?.trim()||prev.name, addr:parts.slice(1).join(',').trim()||prev.addr}:null);
+        }
+      });
+    });
+
+    // Resize
+    const onResize = ()=>{ setIsMobile(window.innerWidth<768); };
+    window.addEventListener('resize', onResize);
+    return ()=>{ window.removeEventListener('resize', onResize); };
+  }, []);
+
+  // ── Heatmap ─────────────────────────────────────────────────────────────────
+  useEffect(()=>{
+    if (!mapRef) return;
+    heatCirclesRef.forEach(c=>mapRef.removeLayer(c)); heatCirclesRef=[];
+    if (!hmOn) return;
+    const b = mapRef.getBounds();
+    const bbox = { min_lat:b.getSouth(), max_lat:b.getNorth(), min_lon:b.getWest(), max_lon:b.getEast(), time_band:hmBand };
+    fetch(`${API}/heatmap`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(bbox)})
+      .then(r=>r.json()).then(d=>{
+        (d.features||[]).forEach(f=>{
+          const c = f.css_score>=0.75?'#34D399':f.css_score>=0.5?'#FBBF24':'#F87171';
+          const circle = window.L.circleMarker([f.lat,f.lon],{radius:6,color:c,fillColor:c,fillOpacity:0.75,weight:0}).addTo(mapRef);
+          circle.bindPopup(`<div class="seg-popup"><div style="font-family:JetBrains Mono;font-size:7px;color:#7C8DB5;letter-spacing:2px;margin-bottom:6px">CSS SCORE</div><div style="font-size:26px;font-weight:700;color:${c}">${Math.round(f.css_score*100)}%</div></div>`);
+          heatCirclesRef.push(circle);
+        });
+      }).catch(()=>{});
+  }, [hmOn, hmBand]);
+
+  // ── Draw routes whenever routeData/selectedTier changes ────────────────────
+  useEffect(()=>{
+    if (!routeData||!mapRef) return;
+    clearPolylines();
+    routeData.tiers.forEach((tier, idx)=>{
+      if (!tier._coords) return;
+      const cfg = TIER_CFG[tier.tier]||TIER_CFG.balanced;
+      const isSel = idx===selectedTier;
+      const pl = window.L.polyline(tier._coords, {
+        color:cfg.color, weight:isSel?7:3.5, opacity:isSel?1:0.45,
+        dashArray:isSel?null:'10 6', lineCap:'round'
+      }).addTo(mapRef);
+      pl.on('click', async e=>{
+        const band = routeData.time_band;
+        let css = tier.path_safety;
+        try {
+          const r = await fetch(`${API}/safety/segment?lat=${e.latlng.lat.toFixed(6)}&lon=${e.latlng.lng.toFixed(6)}&time_band=${band}`);
+          if(r.ok){ const d=await r.json(); css=d.css_score??css; }
+        } catch{}
+        const pct = Math.round(css*100);
+        const col = pct>=75?'#34D399':pct>=50?'#FBBF24':'#F87171';
+        window.L.popup().setLatLng(e.latlng).setContent(`<div class="seg-popup"><div style="font-family:JetBrains Mono;font-size:7px;color:#7C8DB5;letter-spacing:2px;margin-bottom:6px">SEGMENT SAFETY</div><div style="font-size:26px;font-weight:700;color:${col}">${pct}%</div><div style="font-size:11px;color:${col};font-weight:600;margin-bottom:8px">${pct>=75?'Safe':pct>=50?'Moderate':'Unsafe'}</div></div>`).openOn(mapRef);
+      });
+      routePolylinesRef.push(pl);
+    });
+  }, [routeData, selectedTier]);
+
+  // ── Fetch routes ─────────────────────────────────────────────────────────────
+  const handleGetRoutes = useCallback(async ()=>{
+    if (!origin||!destination) { showToast('Set origin and destination first','warning'); return; }
+    setLoading(true);
+    try {
+      const body = { origin:{lat:origin.lat,lon:origin.lon}, destination:{lat:destination.lat,lon:destination.lon}, departure_epoch:getEpoch(hour), profile:{persona,safety_threshold:0.65,speed_weight:persona==='delivery'?0.5:0.3} };
+      const r = await fetch(`${API}/route`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      if (!r.ok) throw new Error(await r.text()||r.statusText);
+      let rd = await r.json();
+      rd.tiers = normalizeTiers(rd.tiers);
+
+      // Build node pool
+      const pad = 0.02;
+      const bbox = { min_lat:Math.min(origin.lat,destination.lat)-pad, max_lat:Math.max(origin.lat,destination.lat)+pad, min_lon:Math.min(origin.lon,destination.lon)-pad, max_lon:Math.max(origin.lon,destination.lon)+pad, time_band:rd.time_band };
+      try {
+        const hr = await fetch(`${API}/heatmap`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(bbox)});
+        nodepoolRef = hr.ok ? (await hr.json()).features||[] : [];
+      } catch { nodepoolRef=[]; }
+
+      // Fetch OSRM paths
+      const results = await Promise.allSettled(rd.tiers.map(async tier=>{
+        const wps = pickWaypoints(tier.tier,3,origin,destination,nodepoolRef);
+        return fetchOSRM(origin,destination,wps);
+      }));
+      const paths = results.map(r=>r.status==='fulfilled'?r.value:null);
+      if (paths[0]&&paths[1]&&routeSimilarity(paths[0],paths[1])>0.85) {
+        try { paths[1]=await fetchOSRM(origin,destination,pickWaypoints('balanced',5,origin,destination,nodepoolRef)); } catch{}
+      }
+      if (paths[0]&&paths[2]&&routeSimilarity(paths[0],paths[2])>0.75) {
+        try { paths[2]=await fetchOSRM(origin,destination,pickWaypoints('safe_scenic',5,origin,destination,nodepoolRef)); } catch{}
+      }
+      const fallback = paths.find(p=>p);
+      rd.tiers.forEach((tier,idx)=>{
+        tier._coords = paths[idx]||fallback||[[origin.lat,origin.lon],[destination.lat,destination.lon]];
+      });
+
+      // MUN markers
+      munMarkersRef.forEach(m=>mapRef.removeLayer(m)); munMarkersRef=[];
+
+      setRouteData(rd);
+      setSelectedTier(0);
+      fitBounds(origin,destination);
+      if (isMobile) setSheetH('half');
+      showToast(`${rd.tiers.length} safe routes found ✓`,'success');
+    } catch(e) {
+      showToast('Route error: '+e.message,'error');
+    } finally { setLoading(false); }
+  }, [origin, destination, persona, hour, isMobile, showToast]);
+
+  // Clear route
+  const handleClear = useCallback(()=>{
+    clearPolylines();
+    munMarkersRef.forEach(m=>mapRef.removeLayer(m)); munMarkersRef=[];
+    setRouteData(null);
+  }, []);
+
+  // Set origin/dest from search or map click
+  const handleSetOrigin = useCallback((loc, text)=>{
+    if (!loc) { setOriginState(null); setOriginText(''); if(originMarkerRef){mapRef.removeLayer(originMarkerRef);originMarkerRef=null;} return; }
+    setOriginState(loc); setOriginText(text);
+    setOriginMarker(loc);
+    mapRef.setView([loc.lat,loc.lon],14,{animate:true});
+    handleClear();
+  }, [handleClear]);
+
+  const handleSetDest = useCallback((loc, text)=>{
+    if (!loc) { setDestState(null); setDestText(''); if(destMarkerRef){mapRef.removeLayer(destMarkerRef);destMarkerRef=null;} return; }
+    setDestState(loc); setDestText(text);
+    setDestMarker(loc);
+    if (origin) fitBounds(origin, loc);
+    handleClear();
+  }, [origin, handleClear]);
+
+  const handleSwap = useCallback(()=>{
+    const tl=originText, tlo=origin;
+    setOriginText(destText); setOriginState(destination);
+    if (destination) setOriginMarker(destination); else { if(originMarkerRef){mapRef.removeLayer(originMarkerRef);originMarkerRef=null;} }
+    setDestText(tl); setDestState(tlo);
+    if (tlo) setDestMarker(tlo); else { if(destMarkerRef){mapRef.removeLayer(destMarkerRef);destMarkerRef=null;} }
+    handleClear();
+  }, [origin,destination,originText,destText,handleClear]);
+
+  const handleMyLocation = useCallback(()=>{
+    if (!navigator.geolocation) { showToast('Geolocation not supported','warning'); return; }
+    showToast('Getting your location…','info');
+    navigator.geolocation.getCurrentPosition(pos=>{
+      const loc = { lat:pos.coords.latitude, lon:pos.coords.longitude };
+      setOriginState(loc); setOriginMarker(loc);
+      mapRef.setView([loc.lat,loc.lon],15,{animate:true});
+      revGeocode(loc.lat,loc.lon).then(n=>setOriginText(n||'My Location'));
+      showToast('Origin set to your location ✓','success');
+    },()=>showToast('Cannot get location','warning'));
+  }, [showToast]);
+
+  // Map click panel actions
+  const handleMapSetOrigin = useCallback(()=>{
+    if (!mapClickInfo) return;
+    const loc = { lat:mapClickInfo.lat, lon:mapClickInfo.lon };
+    handleSetOrigin(loc, mapClickInfo.name);
+    setMapClickInfo(null);
+    showToast('Origin set ✓','success');
+  }, [mapClickInfo, handleSetOrigin, showToast]);
+
+  const handleMapSetDest = useCallback(()=>{
+    if (!mapClickInfo) return;
+    const loc = { lat:mapClickInfo.lat, lon:mapClickInfo.lon };
+    handleSetDest(loc, mapClickInfo.name);
+    setMapClickInfo(null);
+    showToast('Destination set ✓','success');
+  }, [mapClickInfo, handleSetDest, showToast]);
+
+  // Persona change with auto-refetch
+  const handlePersona = useCallback((id)=>{
+    setPersona(id);
+    if (routeData) setTimeout(handleGetRoutes,50);
+  }, [routeData, handleGetRoutes]);
+
+  const bandName = BAND_NAMES[Math.floor(hour/2)];
+
+  // ── SIDEBAR / SHEET CONTENT ──────────────────────────────────────────────────
+  const SidebarContent = ()=>(
+    <div style={{ display:'flex', flexDirection:'column', height:'100%', overflow:'hidden' }}>
+      {/* Header */}
+      <div style={{ padding:'16px 18px 12px', borderBottom:'1px solid var(--border)', flexShrink:0 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:14 }}>
+          <div style={{ flex:1 }}>
+            <div style={{ fontFamily:'JetBrains Mono', fontSize:10, fontWeight:700, color:'var(--teal)', letterSpacing:2.5 }}>FEAR-FREE · BLR</div>
+            <div style={{ fontSize:10, color: healthStatus.ok?'var(--green)':'var(--t3)', fontFamily:'JetBrains Mono', letterSpacing:1, marginTop:2 }}>
+              <span style={{ display:'inline-block', width:6, height:6, borderRadius:'50%', background:healthStatus.ok?'var(--green)':'var(--t3)', marginRight:5, boxShadow:healthStatus.ok?'0 0 8px var(--green)':'none', verticalAlign:'middle' }} />
+              {healthStatus.txt}
+            </div>
+          </div>
+          <button onClick={()=>cycleMapLayer(showToast)} style={{ background:'var(--s2)', border:'1px solid var(--border2)', borderRadius:10, color:'var(--t2)', padding:'7px 10px', cursor:'pointer', fontSize:16, transition:'all 0.2s' }} title="Switch map style">🗺</button>
+          <button onClick={()=>{ setHmOn(v=>!v); if(!hmOn)setTab('heatmap'); }} style={{ background:hmOn?'var(--teal-d)':'var(--s2)', border:`1px solid ${hmOn?'rgba(0,245,200,0.4)':'var(--border2)'}`, borderRadius:10, color:hmOn?'var(--teal)':'var(--t2)', padding:'7px 10px', cursor:'pointer', fontSize:16 }} title="Heatmap">🌡</button>
+        </div>
+
+        {/* Search inputs */}
+        <div style={{ display:'flex', alignItems:'stretch', gap:0 }}>
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', marginRight:10, padding:'4px 0' }}>
+            <div style={{ width:10, height:10, borderRadius:'50%', background:'var(--teal)', boxShadow:'0 0 8px var(--teal)', flexShrink:0 }} />
+            <div style={{ flex:1, width:2, background:'linear-gradient(to bottom,var(--teal),var(--red))', margin:'4px 0', opacity:0.35, minHeight:10 }} />
+            <div style={{ width:10, height:10, borderRadius:'50%', background:'var(--red)', boxShadow:'0 0 8px var(--red)', flexShrink:0 }} />
+          </div>
+          <div style={{ flex:1, display:'flex', flexDirection:'column', gap:6 }}>
+            <SearchInput
+              placeholder="From: area, landmark, road…"
+              value={originText}
+              onChange={setOriginText}
+              onSelect={handleSetOrigin}
+              accentColor="rgba(0,245,200,0.2)"
+              icon="🟢"
+            />
+            <SearchInput
+              placeholder="To: destination, area… (Enter ↵)"
+              value={destText}
+              onChange={setDestText}
+              onSelect={handleSetDest}
+              accentColor="rgba(248,113,113,0.2)"
+              icon="📍"
+            />
+          </div>
+          <button onClick={handleSwap} style={{ marginLeft:8, background:'var(--s2)', border:'1px solid var(--border2)', borderRadius:9, color:'var(--t2)', width:30, cursor:'pointer', fontSize:14, alignSelf:'center', transition:'all 0.2s' }} title="Swap">⇅</button>
+        </div>
+
+        <div style={{ display:'flex', gap:8, marginTop:10 }}>
+          <button onClick={handleMyLocation} style={{ flex:1, padding:'8px 10px', background:'var(--teal-d)', border:'1px solid rgba(0,245,200,0.3)', borderRadius:10, color:'var(--teal)', fontFamily:'JetBrains Mono', fontSize:9, fontWeight:700, cursor:'pointer', letterSpacing:0.5 }}>
+            📍 MY LOCATION
+          </button>
+          <button onClick={handleGetRoutes} disabled={!origin||!destination} style={{ flex:2, padding:'8px 10px', background:'var(--teal)', border:'none', borderRadius:10, color:'#060B16', fontFamily:'JetBrains Mono', fontSize:9, fontWeight:700, cursor:'pointer', letterSpacing:0.5, opacity:(!origin||!destination)?0.5:1, transition:'all 0.2s' }}>
+            {routeData?'🔄 RECALCULATE':'🛡 FIND SAFE ROUTES'}
+          </button>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display:'flex', background:'var(--bg)', borderBottom:'1px solid var(--border)', padding:'6px 12px', gap:4, flexShrink:0 }}>
+        {[['routes','🛡 ROUTES'],['heatmap','🌡 HEATMAP'],['reports','📝 REPORTS']].map(([id,lbl])=>(
+          <button key={id} className={`tab-btn${tab===id?' active':''}`} onClick={()=>setTab(id)}>{lbl}</button>
+        ))}
+      </div>
+
+      {/* Tab body */}
+      <div style={{ flex:1, overflowY:'auto', overscrollBehavior:'contain', padding:'14px 16px 24px' }}>
+        {tab==='routes' && (
+          <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+            {/* Persona */}
+            <div>
+              <div style={{ fontFamily:'JetBrains Mono', fontSize:8, color:'var(--t3)', letterSpacing:1.5, marginBottom:8 }}>WHO'S NAVIGATING</div>
+              <div style={{ display:'flex', gap:7, overflowX:'auto', scrollbarWidth:'none', paddingBottom:2 }}>
+                {PERSONAS.map(p=>(
+                  <div key={p.id} className={`pchip${persona===p.id?' active':''}`} onClick={()=>handlePersona(p.id)}>
+                    <span>{p.icon}</span><span>{p.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Time */}
+            <div>
+              <div style={{ fontFamily:'JetBrains Mono', fontSize:8, color:'var(--t3)', letterSpacing:1.5, marginBottom:8 }}>DEPARTURE TIME</div>
+              <div style={{ background:'var(--s2)', border:'1px solid var(--border)', borderRadius:12, padding:'12px 14px' }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
+                  <span style={{ fontFamily:'JetBrains Mono', fontSize:18, fontWeight:700, color:'var(--teal)' }}>{String(hour).padStart(2,'0')}:00</span>
+                  <span style={{ fontFamily:'JetBrains Mono', fontSize:8, color:'var(--t3)', textAlign:'right' }}>BAND {Math.floor(hour/2)}<br/>{bandName}</span>
+                </div>
+                <input type="range" min={0} max={23} step={1} value={hour} onChange={e=>setHour(+e.target.value)} style={{ width:'100%' }} />
+              </div>
+            </div>
+
+            <RoutePanel routeData={routeData} selectedTier={selectedTier} onSelectTier={setSelectedTier} onClear={handleClear} persona={persona} onPersona={handlePersona} hour={hour} onHour={setHour} />
+          </div>
+        )}
+        {tab==='heatmap' && <HeatmapPanel hmOn={hmOn} hmBand={hmBand} onToggle={()=>setHmOn(v=>!v)} onBandChange={b=>{ setHmBand(b); }} />}
+        {tab==='reports' && <ReportsPanel onToast={showToast} />}
+      </div>
+    </div>
+  );
+
+  // ── MOBILE BOTTOM SHEET ──────────────────────────────────────────────────────
+  const sheetTransform = sheetH==='peek'?'translateY(calc(100% - 80px))':sheetH==='half'?'translateY(38%)':'translateY(0)';
+  const dragStartY = useRef(null);
+  const dragStartState = useRef(null);
+
+  const onTouchStart = (e)=>{ dragStartY.current=e.touches[0].clientY; dragStartState.current=sheetH; };
+  const onTouchEnd   = (e)=>{
+    if (dragStartY.current===null) return;
+    const dy = dragStartY.current - e.changedTouches[0].clientY;
+    if (dy > 50) setSheetH(sheetH==='peek'?'half':sheetH==='half'?'full':'full');
+    else if (dy < -50) setSheetH(sheetH==='full'?'half':sheetH==='half'?'peek':'peek');
+    dragStartY.current=null;
+  };
+
+  return (
+    <>
+      {/* Desktop sidebar */}
+      {!isMobile && (
+        <div id="sidebar">
+          <SidebarContent />
+        </div>
+      )}
+
+      {/* Mobile bottom sheet */}
+      {isMobile && (
+        <div style={{
+          position:'fixed', bottom:0, left:0, right:0, zIndex:1000,
+          background:'var(--s1)', borderTop:'1px solid var(--border2)',
+          borderRadius:'20px 20px 0 0', boxShadow:'0 -8px 40px rgba(0,0,0,0.7)',
+          transform:sheetTransform, transition:'transform 0.35s cubic-bezier(.32,.72,0,1)',
+          display:'flex', flexDirection:'column', paddingBottom:'env(safe-area-inset-bottom,0)',
+          height:'92vh', willChange:'transform',
+        }}>
+          {/* Drag handle */}
+          <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} onClick={()=>setSheetH(sheetH==='peek'?'half':sheetH==='half'?'full':'peek')}
+            style={{ height:32, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0 }}>
+            <div style={{ width:36, height:4, background:'var(--border2)', borderRadius:2 }} />
+          </div>
+
+          {/* Peek bar (only in peek mode) */}
+          {sheetH==='peek' && (
+            <div onClick={()=>setSheetH('half')} style={{ display:'flex', alignItems:'center', padding:'0 18px 14px', gap:12, cursor:'pointer', flexShrink:0 }}>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:16, fontWeight:700 }}>{routeData?`${routeData.tiers.length} Routes Found`:'Find Safe Routes'}</div>
+                <div style={{ fontSize:12, color:'var(--t2)', marginTop:2 }}>{origin&&destination?`${originText.split(',')[0]} → ${destText.split(',')[0]}`:'Set origin & destination'}</div>
+              </div>
+              <button onClick={e=>{ e.stopPropagation(); handleGetRoutes(); }} disabled={!origin||!destination}
+                style={{ width:44, height:44, borderRadius:'50%', background:'var(--teal)', border:'none', color:'#060B16', fontSize:18, cursor:'pointer', boxShadow:'0 0 20px rgba(0,245,200,0.3)', opacity:(!origin||!destination)?0.5:1 }}>
+                ▶
+              </button>
+            </div>
+          )}
+
+          {/* Full content */}
+          {sheetH!=='peek' && (
+            <div style={{ flex:1, overflowY:'auto', overscrollBehavior:'contain' }}>
+              <SidebarContent />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Map click popup */}
+      {mapClickInfo && (
+        <div className="map-click-panel" style={{
+          left: Math.min(mapClickInfo.x, window.innerWidth-290),
+          top:  Math.max(mapClickInfo.y - 120, 10),
+          ...(isMobile?{ left:'50%', transform:'translateX(-50%)', bottom:120, top:'auto', position:'fixed' }:{})
+        }}>
+          <button onClick={()=>setMapClickInfo(null)} style={{ position:'absolute', top:8, right:10, background:'none', border:'none', color:'var(--t3)', cursor:'pointer', fontSize:16 }}>×</button>
+          <div style={{ fontSize:13, fontWeight:700, color:'var(--t1)', marginBottom:2, paddingRight:20 }}>{mapClickInfo.name}</div>
+          <div style={{ fontSize:10, color:'var(--t2)', lineHeight:1.5 }}>{mapClickInfo.addr}</div>
+          <div className="mcp-btn-row">
+            <button className="mcp-btn" style={{ borderColor:'rgba(0,245,200,0.4)', background:'var(--teal-d)', color:'var(--teal)' }} onClick={handleMapSetOrigin}>🟢 SET ORIGIN</button>
+            <button className="mcp-btn" style={{ borderColor:'rgba(248,113,113,0.4)', background:'var(--red-d)', color:'var(--red)' }} onClick={handleMapSetDest}>📍 SET DEST</button>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile map FABs */}
+      {isMobile && (
+        <div style={{ position:'fixed', right:14, bottom: sheetH==='peek'?100:sheetH==='half'?'40vh':'82vh', zIndex:999, display:'flex', flexDirection:'column', gap:8, transition:'bottom 0.35s cubic-bezier(.32,.72,0,1)' }}>
+          {[
+            { icon:'◎', title:'My location', onClick:handleMyLocation },
+            { icon:'🌡', title:'Heatmap', onClick:()=>setHmOn(v=>!v), active:hmOn },
+            { icon:'🗺', title:'Map style', onClick:()=>cycleMapLayer(showToast) },
+          ].map(b=>(
+            <button key={b.title} title={b.title} onClick={b.onClick} style={{
+              width:42, height:42, borderRadius:'50%', background:b.active?'var(--teal-d)':'var(--s2)',
+              border:`1px solid ${b.active?'rgba(0,245,200,0.4)':'var(--border2)'}`, color:b.active?'var(--teal)':'var(--t1)',
+              fontSize:16, cursor:'pointer', boxShadow:'0 4px 16px rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center',
+            }}>{b.icon}</button>
+          ))}
+        </div>
+      )}
+
+      {/* Loading overlay */}
+      {loading && (
+        <div className="loading-overlay">
+          <div className="spinner" />
+          <div className="loading-txt">COMPUTING SAFE ROUTES…</div>
+        </div>
+      )}
+
+      {/* Toast */}
+      <div className={`toast ${toast.type} ${toast.show?'show':''}`}>{toast.msg}</div>
+
+      {/* Desktop map hint */}
+      {!isMobile && !origin && (
+        <div style={{ position:'fixed', bottom:30, left:'50%', transform:'translateX(calc(-50% + 190px))', zIndex:900, background:'rgba(11,17,32,0.8)', backdropFilter:'blur(8px)', border:'1px solid var(--border2)', borderRadius:999, padding:'7px 16px', fontFamily:'JetBrains Mono', fontSize:9, color:'var(--t2)', letterSpacing:1, pointerEvents:'none', whiteSpace:'nowrap' }}>
+          TAP MAP TO SET LOCATIONS · OR TYPE IN SEARCH BOXES
+        </div>
+      )}
+    </>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+</body>
+</html>
